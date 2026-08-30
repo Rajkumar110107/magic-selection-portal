@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User can be Admin or Candidate
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String?
+  role          String    @default("CANDIDATE") // "ADMIN" or "CANDIDATE"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // If candidate
+  candidateProfile CandidateProfile?
+  
+  // If admin
+  evaluations      Evaluation[]
+  teamObservations TeamObservation[]
+}
+
+model CandidateProfile {
+  id             String    @id @default(cuid())
+  userId         String    @unique
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  secId          String    @unique
+  department     String
+  year           String
+  section        String?
+  adminNotes     String?
+  status         String    @default("UNASSIGNED") // "UNASSIGNED", "PENDING_LOCK", "READY_FOR_ASSESSMENT"
+
+  assignments         AreaAssignment[]
+  assessments         Assessment[]
+  finalAllocations    FinalAllocation[]
+  teamObservations    TeamObservationParticipant[]
+}
+
+// The 6 Capability Areas
+model CapabilityArea {
+  id             String    @id @default(cuid())
+  name           String    @unique // e.g., "Strategic Thinking"
+  description    String?
+  hiddenRole     String    // e.g., "Mastermind"
+  isActive       Boolean   @default(true)
+  
+  assignments      AreaAssignment[]
+  caseStudies      CaseStudy[]
+  teamObservations TeamObservation[]
+}
+
+// Assignment of Candidate to Capability Area (Max 2 per Candidate, Max 2 per Area)
+model AreaAssignment {
+  id                 String    @id @default(cuid())
+  candidateProfileId String
+  capabilityAreaId   String
+  isLocked           Boolean   @default(false)
+  lockedAt           DateTime?
+  lockedBy           String?   // Admin User ID
+  assignedAt         DateTime  @default(now())
+  
+  candidate          CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  area               CapabilityArea   @relation(fields: [capabilityAreaId], references: [id], onDelete: Cascade)
+
+  @@unique([candidateProfileId, capabilityAreaId])
+}
+
+// 18 Case Studies (3 per area)
+model CaseStudy {
+  id                     String    @id @default(cuid())
+  capabilityAreaId       String
+  code                   String?   // e.g., "ST-A", "DM-B"
+  title                  String
+  shortDescription       String?
+  background             String?
+  currentSituation       String?
+  stakeholders           String?   // JSON string array or details
+  knownInformation       String?   // JSON string array
+  constraints            String?   // JSON string array
+  hiddenDetails          String?   // Internal evaluator/admin notes
+  initialChallenge       String?
+  finalDecisionChallenge String?
+  assessmentCompetencies String?   // JSON string array of competencies
+  difficultyLevel        String    @default("HIGH / CHALLENGING")
+  version                Int       @default(1)
+  isActive               Boolean   @default(true)
+  context                String    // Backward compatible summary context
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @default(now()) @updatedAt
+  
+  area                   CapabilityArea @relation(fields: [capabilityAreaId], references: [id], onDelete: Cascade)
+  questions              Question[]
+  assessments            Assessment[]
+}
+
+model Question {
+  id               String    @id @default(cuid())
+  caseStudyId      String
+  orderNumber      Int
+  questionText     String
+  newInformation   String?   // Twist or new info to reveal before this question
+  competencyTested String?   // Internal competency tested (hidden from candidates)
+  guidance         String?   // Internal evaluation criteria
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+  
+  caseStudy        CaseStudy @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
+  responses        Response[]
+}
+
+// Tracks candidate taking an assessment
+model Assessment {
+  id                 String    @id @default(cuid())
+  candidateProfileId String
+  caseStudyId        String
+  capabilityAreaId   String?
+  version            Int       @default(1)
+  status             String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, COMPLETED, EVALUATED
+  assignedAt         DateTime  @default(now())
+  startedAt          DateTime?
+  completedAt        DateTime?
+  
+  candidate          CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  caseStudy          CaseStudy        @relation(fields: [caseStudyId], references: [id], onDelete: Cascade)
+  responses          Response[]
+  evaluation         Evaluation?
+
+  @@unique([candidateProfileId, caseStudyId])
+}
+
+// Individual answers to questions
+model Response {
+  id               String    @id @default(cuid())
+  assessmentId     String
+  questionId       String
+  answerText       String
+  submittedAt      DateTime  @default(now())
+  
+  assessment       Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question         Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, questionId])
+}
+
+// Admin evaluation of an assessment
+model Evaluation {
+  id               String    @id @default(cuid())
+  assessmentId     String    @unique
+  adminId          String
+  notes            String?
+  totalScore       Float?
+  evaluatedAt      DateTime  @default(now())
+  
+  assessment       Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  admin            User       @relation(fields: [adminId], references: [id])
+  scores           EvaluationScore[]
+}
+
+// Individual scores for competencies (e.g., Critical Thinking: 9)
+model EvaluationScore {
+  id               String    @id @default(cuid())
+  evaluationId     String
+  dimension        String    // e.g., "Critical Thinking", "Adaptability"
+  score            Float
+  
+  evaluation       Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+}
+
+// Overlap & Team Observation (Physical meeting)
+model TeamObservation {
+  id                   String    @id @default(cuid())
+  capabilityAreaId     String
+  adminId              String
+  overlapStatus        String    @default("NO_OVERLAP") // "NO_OVERLAP", "DISCUSSED", "RESOLVED"
+  outcome              String?
+  discussionDate       DateTime  @default(now())
+  notes                String?
+  overallNotes         String?
+  
+  // Qualitative team ratings
+  teamworkRating       Float?
+  communicationRating  Float?
+  listeningRating      Float?
+  negotiationRating    Float?
+  leadershipRating     Float?
+  respectRating        Float?
+  adaptabilityRating   Float?
+  teamFirstRating      Float?
+  
+  observedAt           DateTime  @default(now())
+  
+  area                 CapabilityArea @relation(fields: [capabilityAreaId], references: [id], onDelete: Cascade)
+  admin                User           @relation(fields: [adminId], references: [id])
+  participants         TeamObservationParticipant[]
+}
+
+model TeamObservationParticipant {
+  id                 String    @id @default(cuid())
+  teamObservationId  String
+  candidateProfileId String
+  
+  observation        TeamObservation  @relation(fields: [teamObservationId], references: [id], onDelete: Cascade)
+  candidate          CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  
+  @@unique([teamObservationId, candidateProfileId])
+}
+
+// Final MAGIC/OB Allocation
+model FinalAllocation {
+  id                 String    @id @default(cuid())
+  candidateProfileId String    @unique
+  roleName           String    @unique // e.g., "Mastermind", "Advocate", "Co-Lead", "Office Bearer 1"
+  isLocked           Boolean   @default(false)
+  allocatedAt        DateTime  @default(now())
+  
+  candidate          CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id               String    @id @default(cuid())
+  userId           String?   // User who performed the action
+  action           String    // e.g., "ROLE_ASSIGNMENT", "ROLE_LOCK", "ROLE_UNLOCK", "BULK_LOCK"
+  details          String    // JSON stringified details
+  createdAt        DateTime  @default(now())
+}
