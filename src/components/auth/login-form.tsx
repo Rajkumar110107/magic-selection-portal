@@ -21,8 +21,12 @@ export function LoginForm() {
       if (res?.error) {
         setError(res.error);
         setLoading(false);
+      } else if (res?.success) {
+        window.location.href = "/dashboard";
       }
-    } catch {
+    } catch (err) {
+      console.error(err);
+      setError("An unexpected error occurred. Please try again.");
       setLoading(false);
     }
   };

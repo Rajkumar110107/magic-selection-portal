@@ -12,7 +12,7 @@ export async function loginAction(identifier: string, password: string) {
     await signIn("credentials", {
       identifier: identifier.trim(),
       password,
-      redirectTo: "/dashboard",
+      redirect: false,
     });
     return { success: true };
   } catch (error) {
@@ -24,7 +24,7 @@ export async function loginAction(identifier: string, password: string) {
           return { error: "Authentication failed. Please verify your credentials and try again." };
       }
     }
-    // Next.js redirection throws an internal NEXT_REDIRECT error which must be re-thrown
-    throw error;
+    console.error("Login action error:", error);
+    return { error: "Authentication failed. Please verify your credentials and try again." };
   }
 }
