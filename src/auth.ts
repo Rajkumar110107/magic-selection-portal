@@ -24,29 +24,34 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const lowerIdentifier = identifier.toLowerCase();
         const upperIdentifier = identifier.toUpperCase();
 
-        // Support lookup by email OR CandidateProfile SEC ID
-        const user = await prisma.user.findFirst({
+        // Support lookup by email, CandidateProfile SEC ID (case-insensitive), exact name, or 'admin' shortcut
+        const matchingUsers = await prisma.user.findMany({
           where: {
             OR: [
               { email: lowerIdentifier },
+              { email: identifier },
+              ...(lowerIdentifier === "admin" ? [{ role: "ADMIN" }] : []),
               { candidateProfile: { secId: upperIdentifier } },
+              { candidateProfile: { secId: lowerIdentifier } },
               { candidateProfile: { secId: identifier } },
+              { name: { equals: identifier } },
             ]
           },
           include: { candidateProfile: true }
         });
 
-        if (!user || !user.password) return null;
+        for (const user of matchingUsers) {
+          if (user.password && (await bcrypt.compare(password, user.password))) {
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+            };
+          }
+        }
 
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        };
+        return null;
       }
     })
   ],

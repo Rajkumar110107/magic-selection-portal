@@ -140,6 +140,61 @@ export function LoginForm() {
           )}
         </button>
       </form>
+
+      {/* Quick Access Helper */}
+      <div className="pt-2 border-t border-white/[0.06] text-center">
+        <p className="text-[11px] text-slate-400 font-medium mb-2">
+          {activeTab === "candidate" ? "Quick-fill Candidate ID / Username:" : "Quick-fill Admin Username:"}
+        </p>
+        {activeTab === "candidate" ? (
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {[
+              { id: "SEC25AD046", name: "Subhasri" },
+              { id: "SEC25CS048", name: "Yeswant" },
+              { id: "SEC25CS346", name: "Harsha" },
+              { id: "SEC25CS597", name: "Dhayaa" },
+              { id: "SEC25IT137", name: "Logapriya" },
+              { id: "SEC25CS353", name: "Sathya" },
+              { id: "SEC25AM173", name: "Kannan" },
+            ].map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  setIdentifier(c.id);
+                  setError("");
+                }}
+                className="px-2 py-1 bg-white/[0.04] hover:bg-violet-600/20 hover:border-violet-500/40 border border-white/[0.08] rounded-md text-[11px] text-slate-300 transition-colors cursor-pointer"
+              >
+                {c.id} ({c.name})
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button
+              type="button"
+              onClick={() => {
+                setIdentifier("admin@sairam.edu.in");
+                setError("");
+              }}
+              className="px-2.5 py-1 bg-white/[0.04] hover:bg-violet-600/20 hover:border-violet-500/40 border border-white/[0.08] rounded-md text-[11px] text-slate-300 transition-colors cursor-pointer"
+            >
+              Primary Admin (admin@sairam.edu.in)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIdentifier("admin@magic.com");
+                setError("");
+              }}
+              className="px-2.5 py-1 bg-white/[0.04] hover:bg-violet-600/20 hover:border-violet-500/40 border border-white/[0.08] rounded-md text-[11px] text-slate-300 transition-colors cursor-pointer"
+            >
+              Demo Admin (admin@magic.com)
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

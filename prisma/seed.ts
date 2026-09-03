@@ -71,10 +71,10 @@ async function main() {
   await prisma.auditLog.deleteMany({});
   console.log('   -> Selection state successfully purged.');
 
-  // 2. Configure Admin Account
-  console.log('\n2. Configuring Admin Account...');
-  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@magic.com').trim().toLowerCase();
-  const adminRawPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  // 2. Configure Admin Accounts
+  console.log('\n2. Configuring Admin Accounts...');
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@sairam.edu.in').trim().toLowerCase();
+  const adminRawPassword = process.env.ADMIN_PASSWORD || 'googledevelopers';
   const adminPasswordHash = await bcrypt.hash(adminRawPassword, 10);
 
   const admin = await prisma.user.upsert({
@@ -82,16 +82,35 @@ async function main() {
     update: {
       password: adminPasswordHash,
       role: 'ADMIN',
-      name: 'Admin User'
+      name: 'Admin Sairam'
     },
     create: {
       email: adminEmail,
-      name: 'Admin User',
+      name: 'Admin Sairam',
       password: adminPasswordHash,
       role: 'ADMIN'
     }
   });
-  console.log(`   -> Admin user ready: ${admin.email} (Role: ${admin.role})`);
+  console.log(`   -> Primary Admin ready: ${admin.email} (Role: ${admin.role})`);
+
+  // Secondary fallback admin
+  const fallbackAdminEmail = 'admin@magic.com';
+  const fallbackAdminHash = await bcrypt.hash('admin123', 10);
+  await prisma.user.upsert({
+    where: { email: fallbackAdminEmail },
+    update: {
+      password: fallbackAdminHash,
+      role: 'ADMIN',
+      name: 'Admin User'
+    },
+    create: {
+      email: fallbackAdminEmail,
+      name: 'Admin User',
+      password: fallbackAdminHash,
+      role: 'ADMIN'
+    }
+  });
+  console.log(`   -> Fallback Admin ready: ${fallbackAdminEmail} (Password: admin123)`);
 
   // 3. Configure Capability Areas
   console.log('\n3. Configuring Capability Areas...');
@@ -119,7 +138,7 @@ async function main() {
   const candidatePasswordHash = await bcrypt.hash(candidateRawPassword, 10);
 
   for (const candidate of candidatesData) {
-    const candidateEmail = `${candidate.secId.toLowerCase()}@student.sec.ac.in`;
+    const candidateEmail = `${candidate.secId.toLowerCase()}@sairamtap.edu.in`;
 
     const user = await prisma.user.upsert({
       where: { email: candidateEmail },
